@@ -119,7 +119,9 @@ namespace ezacquire.migration.Utility
                 ExceptionLogger.Write(ex);
                 string status = CheckExceptionMsg(ex.Message);
                 migrationRecordsDao.UpdateMigrationRecordsStatus(docId, status, "");
-                return status+"| Fail: " + ex.Message;
+                var errmsg = "";
+                if (status == "P") errmsg = taskFolder;
+                return status+"| Fail: " + ex.Message +" "+ errmsg;
             }
             return "S| Success";
         }
@@ -312,8 +314,8 @@ namespace ezacquire.migration.Utility
                 {
                     string code = errCode.Split(':')[0];
                     var errors = errCode.Split(':')[1].Split(',').ToList();
-                    if (code.Equals("P"))
-                        errors.Add("不合法");
+                    //if (code.Equals("P"))
+                    //    errors.Add("不合法");
                     foreach (var error in errors)
                     {
                         if (msg.Contains(error))

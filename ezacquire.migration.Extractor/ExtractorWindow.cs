@@ -178,6 +178,7 @@ namespace ezacquire.migration.Extractor
             if (result)
             {
                 timer3.Enabled = false;
+                isClosed = false;
                 for (int i = 0; i < ThreadCount; i++)
                 {
                     if (contents.ContainsKey(i.ToString()))
@@ -237,9 +238,9 @@ namespace ezacquire.migration.Extractor
 
         private void GetImageFromFileNet()
         {
+            WriteLoggerListBox("==================================================");
             docIds = migrationRecordsDao.GetDocIdList();
             WriteLoggerListBox($"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")} 取得待取出影像共有 {docIds.Count}筆");
-            WriteLoggerListBox("==================================================");
             if (docIds.Count == 0 && NeedGetData.Equals("Y")) //沒有資料就一直重複取 //因有多台電腦會跑，所以用Config設定哪台要執行
             {
                 if (!ExceMigration())
@@ -344,7 +345,6 @@ namespace ezacquire.migration.Extractor
                     try
                     {
                         ExceTotal++;
-                        Logger.Write("執行緒 " + NowThread.ToString() + " **exeCount=" + count + " / " + contents[NowThread.ToString()].Count);
                         if (count >= contents[NowThread.ToString()].Count)
                         {
                             if (!overThread.Contains(NowThread.ToString()))
@@ -370,6 +370,7 @@ namespace ezacquire.migration.Extractor
                             }
                         }
                         if (contents[NowThread.ToString()].Count == 0) continue;
+                        Logger.Write("執行緒 " + NowThread.ToString() + " **exeCount=" + count + " / " + contents[NowThread.ToString()].Count);
 
                         string docId = contents[NowThread.ToString()][count];
                         var result = documentDao.DoDownloadAction(docId);
@@ -392,7 +393,7 @@ namespace ezacquire.migration.Extractor
 
                         Logger.Write("執行緒 " + NowThread.ToString() + " : " + docId + "=> " + result);
                         Logger.Write("");
-                        if (result.StartsWith("P|"))
+                        if (result.StartsWith("P|") || isClosed)
                         {
                             isClosed = true;
                             ((BackgroundWorker)sender).CancelAsync();
