@@ -109,7 +109,7 @@ namespace ezacquire.migration.Writer
                 Logger.Write($"還沒到指定時間，跳出，不開始，HHmm = {DateTime.Now.ToString("HHmm")} , EndTime = {time}");
                 return;
             }
-            
+
             ExceUploadImageToIR(0);
             ExceTotal = -1;
             CompletedThread = 0;
@@ -183,6 +183,7 @@ namespace ezacquire.migration.Writer
 
         private string AddImage(OriginalData originalData, out string mimeType)
         {
+            Logger.Write($"============ DocId:{originalData.Original_DocId} ============");
             mimeType = "";
             try
             {
@@ -191,14 +192,14 @@ namespace ezacquire.migration.Writer
                 DocumentAdd documentAdd = originalData.Original_Index;
                 documentAdd.DocumentIndex.DocumentType = "D";
                 List<IndexData> indexDatas = new List<IndexData>();
-                foreach(var indexData in documentAdd.DocumentIndex.IndexData)
+                foreach (var indexData in documentAdd.DocumentIndex.IndexData)
                 {
                     indexData.Value = indexData.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
                     if (indexData.Value != null && indexData.Value.Count > 0)
                         indexDatas.Add(indexData);
                 }
                 documentAdd.DocumentIndex.IndexData = indexDatas;
-                if(string.Compare(originalData.Original_DocId, "2580000") < 0)
+                if (string.Compare(originalData.Original_DocId, "2580000") < 0)
                 {
                     var policydate = documentAdd.DocumentIndex.IndexData.Where(s => s.Key == "PolicyDate").ToList();
                     if (policydate == null || policydate.Count <= 0)
@@ -242,30 +243,30 @@ namespace ezacquire.migration.Writer
                 if (gettoken.Status.Equals("ERR"))
                 {
                     //listBoxRecord.Items.Add($"Get Token失敗");
-                    Logger.Write($"Get Token失敗");
+                    Logger.Write($"{originalData.Original_DocId} = Get Token失敗");
                     return "";
                 }
                 else
                 {
                     token = gettoken.Result;
                     //listBoxRecord.Items.Add("Token->" + token);
-                    Logger.Write("Token->" + token);
+                    //Logger.Write("Token->" + token);
                 }
                 var result = documentManage.WriteImage(token, documentAdd);
                 if (result.Status.Equals("ERR"))
                 {
                     //listBoxRecord.Items.Add($"Get retrun message from ezAcquire->ErrorId:{result.Error.ErrorId},Message:{result.Error.Message}");
-                    Logger.Write($"Get retrun message from ezAcquire->ErrorId:{result.Error.ErrorId},Message:{result.Error.Message}");
-                    throw new Exception($"{result.Error.ErrorId} : {result.Error.Message}");
+                    Logger.Write($"{originalData.Original_DocId} Get retrun message from ezAcquire->ErrorId:{result.Error.ErrorId},Message:{result.Error.Message}");
+                    throw new Exception($"{originalData.Original_DocId} = {result.Error.ErrorId} : {result.Error.Message}");
                 }
                 else
                 {
                     //listBoxRecord.Items.Add($"寫入成功 , FileID:{result.Result}");
-                    Logger.Write($"寫入成功 , FileID:{result.Result}");
+                    Logger.Write($"{originalData.Original_DocId}寫入成功 , FileID:{result.Result}");
                 }
                 return result.Result;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ExceptionLogger.Write(ex);
                 return "";
@@ -309,7 +310,7 @@ namespace ezacquire.migration.Writer
 
             string sha1 = "";
             var imageTempFolder = ConfigurationManager.AppSettings["ImageTempFolder"];
-            foreach(var file in fileList)
+            foreach (var file in fileList)
             {
                 var filePath = Path.Combine(imageTempFolder, docId + "_" + file.Page + mimeType);
                 try
@@ -425,7 +426,7 @@ namespace ezacquire.migration.Writer
                     try
                     {
                         ExceTotal++;
-                        
+
                         if (count >= originalDataList[NowThread.ToString()].Count)
                         {
                             if (!overThread.Contains(NowThread.ToString()))
@@ -443,12 +444,12 @@ namespace ezacquire.migration.Writer
                             {
                                 //overThread.Clear();
                                 var isExce = true;
-                                foreach(var od in originalDataList)
+                                foreach (var od in originalDataList)
                                 {
                                     if (od.Value != null && od.Value.Count > 0)
                                         isExce = false;
                                 }
-                                if(isExce)
+                                if (isExce)
                                     ExceUploadImageToIR(NowThread); //取得要做的資料
                             }
                         }
@@ -456,7 +457,7 @@ namespace ezacquire.migration.Writer
 
                         var data = originalDataList[NowThread.ToString()][count];
                         var result = AddImage(data, out string mimeType);
-                        if(string.IsNullOrEmpty(result))
+                        if (string.IsNullOrEmpty(result))
                         {
                             migrationRecordsDao.UpdateMigrationRecordsByezAcquire(data.Original_DocId, result, 0, "E", "");
                         }
@@ -481,7 +482,7 @@ namespace ezacquire.migration.Writer
 
                         string msg = data.Original_DocId + "=> " + result;
                         SetListBoxItem("執行緒 " + NowThread.ToString() + ": " + msg);
-                        
+
                     }
                     catch (Exception ex)
                     {

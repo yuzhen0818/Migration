@@ -118,7 +118,7 @@ namespace ezacquire.migration.Extractor
                 Logger.Write($"還沒到指定時間，跳出，不開始，HHmm = {DateTime.Now.ToString("HHmm")} , StartTime = {time}", "Timer");
                 return;
             }
-            
+
             GetImageFromFileNet(); //取得要做的資料
             ExceTotal = -1;
             FailTotal = 0;
@@ -145,7 +145,7 @@ namespace ezacquire.migration.Extractor
             timer2.Enabled = true;
             timer1.Enabled = false;
         }
-        
+
         //時間到停止
         private void timer2_Tick(object sender, EventArgs e)
         {
@@ -161,7 +161,7 @@ namespace ezacquire.migration.Extractor
             isClosed = false;
             for (int i = 0; i < ThreadCount; i++)
             {
-                if(bws[i].IsBusy)
+                if (bws[i].IsBusy)
                     bws[i].CancelAsync();
             }
             progressBar1.Style = ProgressBarStyle.Blocks;
@@ -200,7 +200,7 @@ namespace ezacquire.migration.Extractor
                 DateTime.TryParse(ConfigurationManager.AppSettings["StartDay"], out DateTime startDay);
                 if (ConfigurationManager.AppSettings["EndDay"] != "") // 如果有EndDay代表上次取到最後時間，要從那天在往後取
                     DateTime.TryParse(ConfigurationManager.AppSettings["EndDay"], out startDay);
-                    DateTime endDay = startDay;
+                DateTime endDay = startDay;
 
                 if (ConfigurationManager.AppSettings["AddDays"] != "")
                 {
@@ -226,7 +226,7 @@ namespace ezacquire.migration.Extractor
                 configuration.Save(ConfigurationSaveMode.Full, true);
                 ConfigurationManager.RefreshSection("appSettings");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 lblTime.Text += " ERROR";
                 listBoxRecord.Items.Add("ExceMigration Error: " + ex.Message);
@@ -339,6 +339,7 @@ namespace ezacquire.migration.Extractor
                     if (((BackgroundWorker)sender).CancellationPending == true)
                     {
                         e.Cancel = true;
+                        Logger.Write("執行緒 " + NowThread.ToString() + " 停止");
                         return;
                     }
 
