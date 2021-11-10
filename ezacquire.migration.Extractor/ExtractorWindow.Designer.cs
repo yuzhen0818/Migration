@@ -31,7 +31,6 @@
             this.components = new System.ComponentModel.Container();
             this.listBoxRecord = new System.Windows.Forms.ListBox();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnExceMigration = new System.Windows.Forms.Button();
             this.btnStart = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
@@ -40,6 +39,9 @@
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.timer2 = new System.Windows.Forms.Timer(this.components);
             this.timer3 = new System.Windows.Forms.Timer(this.components);
+            this.btnExceMigration = new System.Windows.Forms.Button();
+            this.timer4 = new System.Windows.Forms.Timer(this.components);
+            this.timer5 = new System.Windows.Forms.Timer(this.components);
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -50,7 +52,7 @@
             this.listBoxRecord.ItemHeight = 15;
             this.listBoxRecord.Location = new System.Drawing.Point(0, 78);
             this.listBoxRecord.Name = "listBoxRecord";
-            this.listBoxRecord.Size = new System.Drawing.Size(686, 470);
+            this.listBoxRecord.Size = new System.Drawing.Size(574, 470);
             this.listBoxRecord.TabIndex = 3;
             // 
             // panel1
@@ -64,23 +66,8 @@
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(686, 78);
+            this.panel1.Size = new System.Drawing.Size(574, 78);
             this.panel1.TabIndex = 4;
-            // 
-            // btnExceMigration
-            // 
-            this.btnExceMigration.AutoSize = true;
-            this.btnExceMigration.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.btnExceMigration.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnExceMigration.Location = new System.Drawing.Point(577, 9);
-            this.btnExceMigration.Margin = new System.Windows.Forms.Padding(13, 0, 0, 0);
-            this.btnExceMigration.Name = "btnExceMigration";
-            this.btnExceMigration.Size = new System.Drawing.Size(100, 34);
-            this.btnExceMigration.TabIndex = 21;
-            this.btnExceMigration.TabStop = false;
-            this.btnExceMigration.Text = "取得資料";
-            this.btnExceMigration.UseVisualStyleBackColor = false;
-            this.btnExceMigration.Click += new System.EventHandler(this.btnExceMigration_Click);
             // 
             // btnStart
             // 
@@ -154,11 +141,36 @@
             this.timer3.Interval = 60000;
             this.timer3.Tick += new System.EventHandler(this.timer3_Tick);
             // 
+            // btnExceMigration
+            // 
+            this.btnExceMigration.AutoSize = true;
+            this.btnExceMigration.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.btnExceMigration.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnExceMigration.Location = new System.Drawing.Point(577, 9);
+            this.btnExceMigration.Margin = new System.Windows.Forms.Padding(13, 0, 0, 0);
+            this.btnExceMigration.Name = "btnExceMigration";
+            this.btnExceMigration.Size = new System.Drawing.Size(100, 34);
+            this.btnExceMigration.TabIndex = 21;
+            this.btnExceMigration.TabStop = false;
+            this.btnExceMigration.Text = "取得資料";
+            this.btnExceMigration.UseVisualStyleBackColor = false;
+            this.btnExceMigration.Click += new System.EventHandler(this.btnExceMigration_Click);
+            // 
+            // timer4
+            // 
+            this.timer4.Interval = 30000;
+            this.timer4.Tick += new System.EventHandler(this.timer4_Tick);
+            // 
+            // timer5
+            // 
+            this.timer5.Interval = 30000;
+            this.timer5.Tick += new System.EventHandler(this.timer5_Tick);
+            // 
             // ExtractorWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(686, 548);
+            this.ClientSize = new System.Drawing.Size(574, 548);
             this.Controls.Add(this.listBoxRecord);
             this.Controls.Add(this.panel1);
             this.Name = "ExtractorWindow";
@@ -180,8 +192,10 @@
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Timer timer2;
-        private System.Windows.Forms.Button btnExceMigration;
         private System.Windows.Forms.Timer timer3;
+        private System.Windows.Forms.Button btnExceMigration;
+        private System.Windows.Forms.Timer timer4;
+        private System.Windows.Forms.Timer timer5;
     }
 }
 

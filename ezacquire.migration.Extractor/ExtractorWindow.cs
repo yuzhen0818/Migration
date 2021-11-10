@@ -21,8 +21,6 @@ namespace ezacquire.migration.Extractor
         int ThreadCount;
         int CompletedThread = 0;
         int ExceTotal = 0;
-        int FailTotal = 0;
-        int TimeOut = 100;
         List<string> docIds = new List<string>();
         List<string> overThread = new List<string>();
         Dictionary<string, List<string>> contents = new Dictionary<string, List<string>>();
@@ -34,10 +32,15 @@ namespace ezacquire.migration.Extractor
         string weekendEndTime = "";
         string NeedGetData = "";
         bool isClosed = false;
+        string NeedTimer = "Y";
+        string stopTime = "";
+        string restartTime = "";
+        string NeedRestart = "Y";
+        bool isRestart = false;
         #endregion
 
         #region ::Constructor::
-        public ExtractorWindow()
+        public ExtractorWindow(string[] args)
         {
             InitializeComponent();
             lblTime.Text = "";
@@ -45,7 +48,13 @@ namespace ezacquire.migration.Extractor
             endTime = ConfigurationManager.AppSettings["EndTime"];
             weekendStartTime = ConfigurationManager.AppSettings["WeekendStartTime"];
             weekendEndTime = ConfigurationManager.AppSettings["WeekendEndTime"];
+
             NeedGetData = ConfigurationManager.AppSettings["NeedGetData"];
+            NeedTimer = ConfigurationManager.AppSettings["NeedTimer"];
+            NeedRestart = ConfigurationManager.AppSettings["NeedRestart"];
+
+            stopTime = ConfigurationManager.AppSettings["StopTime"];
+            restartTime = ConfigurationManager.AppSettings["RestartTime"];
 
             int.TryParse(ConfigurationManager.AppSettings["ThreadCount"], out ThreadCount);
             if (ThreadCount <= 0)
@@ -68,14 +77,30 @@ namespace ezacquire.migration.Extractor
                 else
                     contents.Add(i.ToString(), new List<string>());
             }
+
+            timer1.Enabled = false;
+            timer2.Enabled = false;
+            timer4.Enabled = (NeedRestart == "Y");
+            timer5.Enabled = false;
+
+
+            if (args != null && args.Count() > 0)
+            {
+                btnStart_Click(btnStart, null);
+            }
         }
         #endregion
 
         #region ::Event::
         private void btnStart_Click(object sender, EventArgs e)
         {
-            timer1.Interval = 1000;
-            timer1.Enabled = true;
+            if(NeedTimer == "Y")
+            {
+                timer1.Interval = 1000;
+                timer1.Enabled = true;
+            }
+            else
+                RunWorker();
             progressBar1.Style = ProgressBarStyle.Marquee;
         }
 
@@ -119,29 +144,8 @@ namespace ezacquire.migration.Extractor
                 return;
             }
 
-            GetImageFromFileNet(); //取得要做的資料
-            ExceTotal = -1;
-            FailTotal = 0;
-            CompletedThread = 0;
+            RunWorker();
 
-            bool IsBusy = false;
-            for (int i = 0; i < ThreadCount; i++)
-            {
-                if (bws[i].IsBusy)
-                {
-                    IsBusy = true;
-                    break;
-                }
-            }
-            if (!IsBusy)
-            {
-                for (int i = 0; i < ThreadCount; i++)
-                {
-                    bws[i].RunWorkerAsync(i);
-                }
-            }
-            else
-                MessageBox.Show("程式執行中．．．");
             timer2.Enabled = true;
             timer1.Enabled = false;
         }
@@ -187,6 +191,41 @@ namespace ezacquire.migration.Extractor
                         bws[i].RunWorkerAsync(i);
                 }
             }
+        }
+
+        //每分鐘判斷是不是晚上 11.55
+        private void timer4_Tick(object sender, EventArgs e)
+        {
+            if (!DateTime.Now.ToString("HHmm").Equals(stopTime))
+            {
+                return;
+            }
+            Logger.Write($"{stopTime}，停止到 {restartTime}");
+            isClosed = false;
+            for (int i = 0; i < ThreadCount; i++)
+            {
+                if (bws[i].IsBusy)
+                    bws[i].CancelAsync();
+            }
+            progressBar1.Style = ProgressBarStyle.Blocks;
+            isRestart = true;
+            timer5.Enabled = true;
+            timer4.Enabled = false;
+        }
+
+        //11.55停止到12.05
+        private void timer5_Tick(object sender, EventArgs e)
+        {
+            if (!DateTime.Now.ToString("HHmm").Equals(restartTime))
+            {
+                return;
+            }
+            Logger.Write($"{restartTime} 重新啟動");
+            RunWorker();
+            progressBar1.Style = ProgressBarStyle.Marquee;
+            isRestart = false;
+            timer4.Enabled = true;
+            timer5.Enabled = false;
         }
         #endregion
 
@@ -238,6 +277,7 @@ namespace ezacquire.migration.Extractor
 
         private void GetImageFromFileNet()
         {
+            GC.Collect();
             WriteLoggerListBox("==================================================");
             docIds = migrationRecordsDao.GetDocIdList();
             WriteLoggerListBox($"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")} 取得待取出影像共有 {docIds.Count}筆");
@@ -247,8 +287,8 @@ namespace ezacquire.migration.Extractor
                 {
                     btnClose_Click(btnClose, null);
                     timer3.Enabled = true;
+                    return;
                 }
-                return;
             }
             int index = 0;
             int count = docIds.Count / ThreadCount;
@@ -273,53 +313,30 @@ namespace ezacquire.migration.Extractor
             Logger.Write(msg);
         }
 
-        private void RunParallelWorks<T>(int threadLimit, List<T> list, Action<T> run)
+        private void RunWorker()
         {
-            if (list == null || list.Count == 0)
-                return;
+            GetImageFromFileNet(); //取得要做的資料
+            ExceTotal = -1;
+            CompletedThread = 0;
 
-            if (threadLimit == 0)
+            bool IsBusy = false;
+            for (int i = 0; i < ThreadCount; i++)
             {
-                threadLimit = System.Environment.ProcessorCount * 2;
-            }
-
-            Semaphore pool = new Semaphore(threadLimit, threadLimit);
-
-            ManualResetEvent doneEvent = new ManualResetEvent(false);
-            int taskCount = list.Count;
-            for (int i = 0; i < list.Count; ++i)
-            {
-                ThreadPool.QueueUserWorkItem(
-                    (object o) => {
-                        try
-                        {
-                            pool.WaitOne();
-                            var d = (T)o;
-                            run.Invoke(d);
-                        }
-                        catch (Exception ex)
-                        {
-                            ExceptionLogger.Write(ex);
-                        }
-                        finally
-                        {
-                            pool.Release();
-                            if (Interlocked.Decrement(ref taskCount) == 0)
-                            {
-                                doneEvent.Set();
-                            }
-                        }
-                    }
-                    , list[i]
-                );
-                if (DateTime.Now.ToString("HHmm").Equals(endTime))
+                if (bws[i].IsBusy)
                 {
-                    WriteLoggerListBox($"已到指定結束時間(執行{i}筆)，HHmm = {DateTime.Now.ToString("HHmm")} , EndTime = {endTime}");
-                    doneEvent.Set();
+                    IsBusy = true;
                     break;
                 }
             }
-            doneEvent.WaitOne();
+            if (!IsBusy)
+            {
+                for (int i = 0; i < ThreadCount; i++)
+                {
+                    bws[i].RunWorkerAsync(i);
+                }
+            }
+            else
+                MessageBox.Show("程式執行中．．．");
         }
         #endregion
 
@@ -431,6 +448,12 @@ namespace ezacquire.migration.Extractor
                     {
                         Logger.Write("有 P 先跳出Thread。");
                         timer3.Enabled = true;
+                    }
+                    else
+                    if (!isRestart && NeedTimer.Equals("Y"))
+                    {
+                        timer1.Enabled = true;
+                        timer2.Enabled = false;
                     }
                     CompletedThread = 0;
                 }

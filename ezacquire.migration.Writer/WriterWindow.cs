@@ -36,10 +36,15 @@ namespace ezacquire.migration.Writer
         string endTime = "";
         string weekendStartTime = "";
         string weekendEndTime = "";
+        string NeedTimer = "Y";
+        string stopTime = "";
+        string restartTime = "";
+        string NeedRestart = "Y";
+        bool isRestart = false;
         #endregion
 
         #region ::Constructor::
-        public WriterWindow()
+        public WriterWindow(string[] args)
         {
             InitializeComponent();
             lblTime.Text = "";
@@ -48,6 +53,11 @@ namespace ezacquire.migration.Writer
             endTime = ConfigurationManager.AppSettings["EndTime"];
             weekendStartTime = ConfigurationManager.AppSettings["WeekendStartTime"];
             weekendEndTime = ConfigurationManager.AppSettings["WeekendEndTime"];
+
+            NeedTimer = ConfigurationManager.AppSettings["NeedTimer"];
+            NeedRestart = ConfigurationManager.AppSettings["NeedRestart"];
+            stopTime = ConfigurationManager.AppSettings["StopTime"];
+            restartTime = ConfigurationManager.AppSettings["RestartTime"];
 
             int.TryParse(ConfigurationManager.AppSettings["ThreadCount"], out ThreadCount);
             if (ThreadCount <= 0)
@@ -70,14 +80,29 @@ namespace ezacquire.migration.Writer
                 else
                     originalDataList.Add(i.ToString(), new List<OriginalData>());
             }
+
+            timer1.Enabled = false;
+            timer2.Enabled = false;
+            timer4.Enabled = (NeedRestart == "Y");
+            timer5.Enabled = false;
+
+            if (args != null && args.Count() > 0)
+            {
+                btnStart_Click(btnStart, null);
+            }
         }
         #endregion
 
         #region ::Event::
         private void btnStart_Click(object sender, EventArgs e)
         {
-            timer1.Interval = 1000;
-            timer1.Enabled = true;
+            if (NeedTimer == "Y")
+            {
+                timer1.Interval = 1000;
+                timer1.Enabled = true;
+            }
+            else
+                RunWorker();
             progressBar1.Style = ProgressBarStyle.Marquee;
         }
 
@@ -110,29 +135,8 @@ namespace ezacquire.migration.Writer
                 return;
             }
 
-            ExceUploadImageToIR(0);
-            ExceTotal = -1;
-            CompletedThread = 0;
+            RunWorker();
 
-            progressBar1.Style = ProgressBarStyle.Marquee;
-            bool IsBusy = false;
-            for (int i = 0; i < ThreadCount; i++)
-            {
-                if (bws[i].IsBusy)
-                {
-                    IsBusy = true;
-                    break;
-                }
-            }
-            if (!IsBusy)
-            {
-                for (int i = 0; i < ThreadCount; i++)
-                {
-                    bws[i].RunWorkerAsync(i);
-                }
-            }
-            else
-                MessageBox.Show("程式執行中．．．");
             timer2.Enabled = true;
             timer1.Enabled = false;
         }
@@ -155,11 +159,46 @@ namespace ezacquire.migration.Writer
             timer1.Enabled = true;
             timer2.Enabled = false;
         }
+
+        //每分鐘判斷是不是晚上 11.55
+        private void timer4_Tick(object sender, EventArgs e)
+        {
+            if (!DateTime.Now.ToString("HHmm").Equals(stopTime))
+            {
+                return;
+            }
+            Logger.Write($"{stopTime}，停止到 {restartTime}");
+            for (int i = 0; i < ThreadCount; i++)
+            {
+                if (bws[i].IsBusy)
+                    bws[i].CancelAsync();
+            }
+            progressBar1.Style = ProgressBarStyle.Blocks;
+            isRestart = true;
+            timer5.Enabled = true;
+            timer4.Enabled = false;
+        }
+
+        //11.55停止到12.05
+        private void timer5_Tick(object sender, EventArgs e)
+        {
+            if (!DateTime.Now.ToString("HHmm").Equals(restartTime))
+            {
+                return;
+            }
+            Logger.Write($"{restartTime} 重新啟動");
+            RunWorker();
+            progressBar1.Style = ProgressBarStyle.Marquee;
+            isRestart = false;
+            timer4.Enabled = true;
+            timer5.Enabled = false;
+        }
         #endregion
 
         #region ::Private Method::
         private void ExceUploadImageToIR(int nowThread)
         {
+            GC.Collect();
             SetListBoxItem($"==================================================({nowThread})");
             var originalDatas = migrationRecordsDao.GetOriginalDataList(nowThread);
             SetListBoxItem($"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")} 取得待轉入影像共有 {originalDatas.Count()}筆");
@@ -361,48 +400,32 @@ namespace ezacquire.migration.Writer
             }
             Logger.Write(message);
         }
-
-        private void RunParallelWorks<T>(int threadLimit, List<T> list, Action<T> run)
+        
+        private void RunWorker()
         {
-            if (list == null || list.Count == 0)
-                return;
+            ExceUploadImageToIR(0);
+            ExceTotal = -1;
+            CompletedThread = 0;
 
-            if (threadLimit == 0)
+            progressBar1.Style = ProgressBarStyle.Marquee;
+            bool IsBusy = false;
+            for (int i = 0; i < ThreadCount; i++)
             {
-                threadLimit = System.Environment.ProcessorCount * 2;
+                if (bws[i].IsBusy)
+                {
+                    IsBusy = true;
+                    break;
+                }
             }
-
-            Semaphore pool = new Semaphore(threadLimit, threadLimit);
-
-            ManualResetEvent doneEvent = new ManualResetEvent(false);
-            int taskCount = list.Count;
-            for (int i = 0; i < list.Count; ++i)
+            if (!IsBusy)
             {
-                ThreadPool.QueueUserWorkItem(
-                    (object o) => {
-                        try
-                        {
-                            pool.WaitOne();
-                            var d = (T)o;
-                            run.Invoke(d);
-                        }
-                        catch (Exception ex)
-                        {
-                            ExceptionLogger.Write(ex);
-                        }
-                        finally
-                        {
-                            pool.Release();
-                            if (Interlocked.Decrement(ref taskCount) == 0)
-                            {
-                                doneEvent.Set();
-                            }
-                        }
-                    }
-                    , list[i]
-                );
+                for (int i = 0; i < ThreadCount; i++)
+                {
+                    bws[i].RunWorkerAsync(i);
+                }
             }
-            doneEvent.WaitOne();
+            else
+                MessageBox.Show("程式執行中．．．");
         }
         #endregion
 
@@ -511,8 +534,11 @@ namespace ezacquire.migration.Writer
                 {
                     progressBar1.Style = ProgressBarStyle.Blocks;
                     listBoxRecord.Items.Add("執行完畢");
-                    timer1.Enabled = true;
-                    timer2.Enabled = false;
+                    if(!isRestart && NeedTimer.Equals("Y"))
+                    {
+                        timer1.Enabled = true;
+                        timer2.Enabled = false;
+                    }
                 }
             }
         }

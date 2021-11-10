@@ -108,7 +108,12 @@ namespace ezacquire.migration.Utility
             string month = DateTime.Now.ToString("MM");
             string day = DateTime.Now.ToString("dd");
             string taskFolder = Path.Combine(imageTempFolder, year, month, day, docId);
-            RecreateDirectory(taskFolder);
+            var result = RecreateDirectory(taskFolder);
+            if(!result)
+            {
+                migrationRecordsDao.UpdateMigrationRecordsStatus(docId, "U", "");
+                return "U| 創建資料夾有問題。";
+            }
             
             try
             {
@@ -205,8 +210,9 @@ namespace ezacquire.migration.Utility
         /// 創建資料夾
         /// </summary>
         /// <param name="directory"></param>
-        private void RecreateDirectory(string directory)
+        private bool RecreateDirectory(string directory)
         {
+            bool result = true;
             if (Directory.Exists(directory))
             {
                 try
@@ -215,6 +221,7 @@ namespace ezacquire.migration.Utility
                 }
                 catch (Exception ex)
                 {
+                    result = false;
                     ExceptionLogger.Write(ex, "刪除資料夾發生錯誤 >> " + directory + "。");
                 }
             }
@@ -227,9 +234,11 @@ namespace ezacquire.migration.Utility
                 }
                 catch (Exception ex)
                 {
+                    result = false;
                     ExceptionLogger.Write(ex, "建立資料夾發生錯誤 >> " + directory + "。");
                 }
             }
+            return result;
         }
         
         /// <summary>
