@@ -124,8 +124,7 @@ namespace ezacquire.migration.Utility
                 ExceptionLogger.Write(ex);
                 string status = CheckExceptionMsg(ex.Message);
                 migrationRecordsDao.UpdateMigrationRecordsStatus(docId, status, "");
-                var errmsg = "";
-                if (status == "P") errmsg = taskFolder;
+                var errmsg = $"({taskFolder})";
                 return status+"| Fail: " + ex.Message +" "+ errmsg;
             }
             return "S| Success";
@@ -195,6 +194,7 @@ namespace ezacquire.migration.Utility
             for (int i = 1; i <= pageCount; i++)
             {
                 string fileName = ISObj.ExportImageFilesByPage(docId, i, taskFolder, docId, true);
+                Logger.Write($"docId {docId}, Page {i}, fileName:'{fileName}'");
                 imageFileList.Add(fileName);
                 FileInfo fi = new FileInfo(fileName);
                 docSize += fi.Length;

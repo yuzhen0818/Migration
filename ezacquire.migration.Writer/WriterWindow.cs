@@ -235,7 +235,40 @@ namespace ezacquire.migration.Writer
                 {
                     indexData.Value = indexData.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
                     if (indexData.Value != null && indexData.Value.Count > 0)
+                    {
+                        if (indexData.Key.ToUpper().Equals("ISREJECT"))
+                        {
+                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x=>x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
+                            if(serviceNumber != null)
+                            {
+                                List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                                if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
+                                {
+                                    for(int i=0;i< (serviceNumberValue.Count - indexData.Value.Count); i++)
+                                        indexData.Value.Add("N");
+                                }
+                            }
+                        }
                         indexDatas.Add(indexData);
+                    }
+                    else
+                    {
+                        if(indexData.Key.ToUpper().Equals("ISREJECT"))
+                        {
+                            indexData.Value = new List<string>() { "N" };
+                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x => x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
+                            if (serviceNumber != null)
+                            {
+                                List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                                if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
+                                {
+                                    for (int i = 0; i < serviceNumberValue.Count-1; i++)
+                                        indexData.Value.Add("N");
+                                }
+                            }
+                            indexDatas.Add(indexData);
+                        }
+                    }
                 }
                 documentAdd.DocumentIndex.IndexData = indexDatas;
                 if (string.Compare(originalData.Original_DocId, "2580000") < 0)
