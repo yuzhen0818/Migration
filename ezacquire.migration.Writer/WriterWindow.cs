@@ -238,13 +238,13 @@ namespace ezacquire.migration.Writer
                     {
                         if (indexData.Key.ToUpper().Equals("ISREJECT"))
                         {
-                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x=>x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
-                            if(serviceNumber != null)
+                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x => x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
+                            if (serviceNumber != null)
                             {
                                 List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
                                 if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
                                 {
-                                    for(int i=0;i< (serviceNumberValue.Count - indexData.Value.Count); i++)
+                                    for (int i = 0; i < (serviceNumberValue.Count - indexData.Value.Count); i++)
                                         indexData.Value.Add("N");
                                 }
                             }
@@ -253,7 +253,7 @@ namespace ezacquire.migration.Writer
                     }
                     else
                     {
-                        if(indexData.Key.ToUpper().Equals("ISREJECT"))
+                        if (indexData.Key.ToUpper().Equals("ISREJECT"))
                         {
                             indexData.Value = new List<string>() { "N" };
                             IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x => x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
@@ -262,7 +262,7 @@ namespace ezacquire.migration.Writer
                                 List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
                                 if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
                                 {
-                                    for (int i = 0; i < serviceNumberValue.Count-1; i++)
+                                    for (int i = 0; i < serviceNumberValue.Count - 1; i++)
                                         indexData.Value.Add("N");
                                 }
                             }
@@ -433,7 +433,7 @@ namespace ezacquire.migration.Writer
             }
             Logger.Write(message);
         }
-        
+
         private void RunWorker()
         {
             ExceUploadImageToIR(0);
@@ -524,13 +524,14 @@ namespace ezacquire.migration.Writer
                             string sha1 = "";
                             migrationRecordsDao.UpdateMigrationRecordsByezAcquire(data.Original_DocId, result, pages, "S", sha1);
 
-                            //刪除暫存影像檔案，同時清空 MigrationRecords 裡的 File_Path 欄位
-                            /*try
+                            //刪除暫存影像檔案
+                            try
                             {
                                 Directory.Delete(data.File_Path, true);
                             }
-                            catch { };
-                            migrationRecordsDao.UpdateMigrationRecordsStatus(data.Original_DocId, "S", "");*/
+                            catch (Exception ex) { ExceptionLogger.Write(ex, "刪除檔案。"); };
+                            //同時清空 MigrationRecords 裡的 File_Path 欄位
+                            //migrationRecordsDao.UpdateMigrationRecordsStatus(data.Original_DocId, "S", "");
                         }
                         count++;
 
@@ -567,7 +568,7 @@ namespace ezacquire.migration.Writer
                 {
                     progressBar1.Style = ProgressBarStyle.Blocks;
                     listBoxRecord.Items.Add("執行完畢");
-                    if(!isRestart && NeedTimer.Equals("Y"))
+                    if (!isRestart && NeedTimer.Equals("Y"))
                     {
                         timer1.Enabled = true;
                         timer2.Enabled = false;
