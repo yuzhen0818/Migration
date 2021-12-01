@@ -1,20 +1,21 @@
 ﻿using ezacquire.migration.Utility;
+using ezacquire.migration.Utility.Models;
 using ezLib.Utility;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
-using System.Data.SqlClient;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace ezacquire.migration.Extractor
+namespace ezacquire.migration
 {
-    public partial class ExtractorWindow : Form
+    public partial class MigrationWindow : Form
     {
         #region ::Field::
         List<BackgroundWorker> bws = new List<BackgroundWorker>();
@@ -26,6 +27,8 @@ namespace ezacquire.migration.Extractor
         Dictionary<string, List<string>> contents = new Dictionary<string, List<string>>();
 
         MigrationRecordsDao migrationRecordsDao = new MigrationRecordsDao();
+        DocumentManage documentManage = new DocumentManage();
+        DocumentDao documentDao = new DocumentDao();
         string startTime = "";
         string endTime = "";
         string weekendStartTime = "";
@@ -37,10 +40,11 @@ namespace ezacquire.migration.Extractor
         string restartTime = "";
         string NeedRestart = "Y";
         bool isRestart = false;
+        string imageTempFolder = "";
         #endregion
 
         #region ::Constructor::
-        public ExtractorWindow(string[] args)
+        public MigrationWindow(string[] args)
         {
             InitializeComponent();
             lblTime.Text = "";
@@ -55,6 +59,9 @@ namespace ezacquire.migration.Extractor
 
             stopTime = ConfigurationManager.AppSettings["StopTime"];
             restartTime = ConfigurationManager.AppSettings["RestartTime"];
+
+            imageTempFolder = ConfigurationManager.AppSettings["ImageTempFolder"];
+            var result = Commons.RecreateDirectory(imageTempFolder);
 
             int.TryParse(ConfigurationManager.AppSettings["ThreadCount"], out ThreadCount);
             if (ThreadCount <= 0)
@@ -94,7 +101,7 @@ namespace ezacquire.migration.Extractor
         #region ::Event::
         private void btnStart_Click(object sender, EventArgs e)
         {
-            if(NeedTimer == "Y")
+            if (NeedTimer == "Y")
             {
                 timer1.Interval = 1000;
                 timer1.Enabled = true;
@@ -124,11 +131,6 @@ namespace ezacquire.migration.Extractor
                 progressBar1.Style = ProgressBarStyle.Blocks;
             timer1.Enabled = false;
             timer2.Enabled = false;
-        }
-
-        private void btnExceMigration_Click(object sender, EventArgs e)
-        {
-            ExceMigration();
         }
 
         //時間到啟動
@@ -278,6 +280,7 @@ namespace ezacquire.migration.Extractor
         private void GetImageFromFileNet()
         {
             GC.Collect();
+            Commons.RecreateDirectory(imageTempFolder);
             WriteLoggerListBox("==================================================");
             docIds = migrationRecordsDao.GetDocIdList();
             WriteLoggerListBox($"{DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")} 取得待取出影像共有 {docIds.Count}筆");
@@ -285,8 +288,8 @@ namespace ezacquire.migration.Extractor
             {
                 if (!ExceMigration())
                 {
+                    isClosed = true;
                     btnClose_Click(btnClose, null);
-                    timer3.Enabled = true;
                     return;
                 }
             }
@@ -297,7 +300,10 @@ namespace ezacquire.migration.Extractor
             {
                 if (index + count > docIds.Count) count = docIds.Count - index;
                 if (contents.ContainsKey(i.ToString()))
+                {
+                    contents[i.ToString()].Clear();
                     contents[i.ToString()] = docIds.GetRange(index, count);
+                }
                 else
                     contents.Add(i.ToString(), docIds.GetRange(index, count));
                 index += count;
@@ -338,6 +344,131 @@ namespace ezacquire.migration.Extractor
             else
                 MessageBox.Show("程式執行中．．．");
         }
+
+        private string AddImage(OriginalData originalData, out string mimeType)
+        {
+            Logger.Write($"============ DocId:{originalData.Original_DocId} ============");
+            mimeType = "";
+            try
+            {
+                string serialNumber = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+
+                DocumentAdd documentAdd = originalData.Original_Index;
+                documentAdd.DocumentIndex.DocumentType = "D";
+                List<IndexData> indexDatas = new List<IndexData>();
+                foreach (var indexData in documentAdd.DocumentIndex.IndexData)
+                {
+                    indexData.Value = indexData.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                    if (indexData.Value != null && indexData.Value.Count > 0)
+                    {
+                        if (indexData.Key.ToUpper().Equals("ISREJECT"))
+                        {
+                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x => x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
+                            if (serviceNumber != null)
+                            {
+                                List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                                if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
+                                {
+                                    for (int i = 0; i < (serviceNumberValue.Count - indexData.Value.Count); i++)
+                                        indexData.Value.Add("N");
+                                }
+                            }
+                        }
+                        indexDatas.Add(indexData);
+                    }
+                    else
+                    {
+                        if (indexData.Key.ToUpper().Equals("ISREJECT"))
+                        {
+                            indexData.Value = new List<string>() { "N" };
+                            IndexData serviceNumber = documentAdd.DocumentIndex.IndexData.Where(x => x.Key.ToUpper().Equals("SERVICENUMBER")).FirstOrDefault();
+                            if (serviceNumber != null)
+                            {
+                                List<string> serviceNumberValue = serviceNumber.Value.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                                if (serviceNumberValue != null && serviceNumberValue.Count > indexData.Value.Count)
+                                {
+                                    for (int i = 0; i < serviceNumberValue.Count - 1; i++)
+                                        indexData.Value.Add("N");
+                                }
+                            }
+                            indexDatas.Add(indexData);
+                        }
+                    }
+                }
+                documentAdd.DocumentIndex.IndexData = indexDatas;
+                if (string.Compare(originalData.Original_DocId, "2580000") < 0)
+                {
+                    var policydate = documentAdd.DocumentIndex.IndexData.Where(s => s.Key == "PolicyDate").ToList();
+                    if (policydate == null || policydate.Count <= 0)
+                    {
+                        var indexData = documentDao.GetIndexData(originalData.Original_DocId);
+                        indexDatas.AddRange(indexData);
+                    }
+                }
+
+                string guid = Guid.NewGuid().ToString();
+                documentAdd.OperatorInfo = new OperatorInfo()
+                {
+                    OperatorUserId = "SysAdmin",
+                    ClientIPAddress = ezLib.Utility.NetworkHelper.GetLocalIPAddress(),
+                    SystemId = "migration",
+                    TransactionId = guid,
+                    ServerIPAddress = ""
+                };
+
+                int index = 1;
+                List<List<FileItem>> f = new List<List<FileItem>>();
+                string[] images = Directory.GetFiles(originalData.File_Path);
+                foreach (var item in images)
+                {
+                    List<FileItem> fileItems = new List<FileItem>();
+
+                    string type = Path.GetExtension(item).Replace(".", "");
+                    string file = Convert.ToBase64String(File.ReadAllBytes(item));
+                    FileItem fileItem = new FileItem();
+                    fileItem.MimeType = type;
+                    fileItem.File = file;
+                    fileItems.Add(fileItem);
+                    f.Add(fileItems);
+                    index++;
+                    mimeType = Path.GetExtension(item);
+                }
+                documentAdd.Files = f;
+
+                string token = "";
+                ezAcquireReturnCode gettoken = documentManage.GetToken();
+                if (gettoken.Status.Equals("ERR"))
+                {
+                    //listBoxRecord.Items.Add($"Get Token失敗");
+                    Logger.Write($"{originalData.Original_DocId} = Get Token失敗");
+                    return "";
+                }
+                else
+                {
+                    token = gettoken.Result;
+                    //listBoxRecord.Items.Add("Token->" + token);
+                    //Logger.Write("Token->" + token);
+                }
+                var result = documentManage.WriteImage(token, documentAdd);
+                if (result.Status.Equals("ERR"))
+                {
+                    //listBoxRecord.Items.Add($"Get retrun message from ezAcquire->ErrorId:{result.Error.ErrorId},Message:{result.Error.Message}");
+                    Logger.Write($"{originalData.Original_DocId} Get retrun message from ezAcquire->ErrorId:{result.Error.ErrorId},Message:{result.Error.Message}");
+                    throw new Exception($"{originalData.Original_DocId} = {result.Error.ErrorId} : {result.Error.Message}");
+                }
+                else
+                {
+                    //listBoxRecord.Items.Add($"寫入成功 , FileID:{result.Result}");
+                    Logger.Write($"{originalData.Original_DocId}寫入成功 , FileID:{result.Result}");
+                }
+                return result.Result;
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.Write(ex);
+                return "";
+            }
+        }
         #endregion
 
         #region <<BackgroundWorker >>
@@ -346,7 +477,6 @@ namespace ezacquire.migration.Extractor
         {
             int NowThread = Convert.ToInt32(e.Argument);
             int count = 0;
-            Console.WriteLine("執行緒 " + NowThread.ToString());
             Logger.Write("執行緒 " + NowThread.ToString() + " 啟動");
             DocumentDao documentDao = new DocumentDao();
             while (true)
@@ -390,31 +520,60 @@ namespace ezacquire.migration.Extractor
                         if (contents[NowThread.ToString()].Count == 0) continue;
                         Logger.Write("執行緒 " + NowThread.ToString() + " **exeCount=" + count + " / " + contents[NowThread.ToString()].Count);
 
-                        string docId = contents[NowThread.ToString()][count];
-                        var result = documentDao.DoDownloadAction(docId, out Utility.Models.OriginalData originalData);
+                        string Original_DocId = contents[NowThread.ToString()][count];
+                        var result = documentDao.DoDownloadAction(Original_DocId, out OriginalData data);
 
                         count++;
 
                         ((BackgroundWorker)sender).ReportProgress(1);
 
-                        if (listBoxRecord.InvokeRequired)
-                        {
-                            listBoxRecord.Invoke(new MethodInvoker(delegate
-                            {
-                                listBoxRecord.Items.Add(docId + "=> " + result);
-                            }));
-                        }
-                        else
-                        {
-                            listBoxRecord.Items.Add(docId + "=> " + result);
-                        }
-
-                        Logger.Write("執行緒 " + NowThread.ToString() + " : " + docId + "=> " + result);
+                        string resultMsg = "執行緒 " + NowThread.ToString() + " : " + Original_DocId + "=> " + result;
+                        Logger.Write(resultMsg);
                         Logger.Write("");
+                        var writeResult = "";
                         if (result.StartsWith("P|") || isClosed)
                         {
                             isClosed = true;
                             ((BackgroundWorker)sender).CancelAsync();
+                        }
+                        else
+                        if (result.StartsWith("S|"))
+                        {
+                            if(data != null && !string.IsNullOrEmpty(data.Original_ImageSHA1))
+                            {
+                                writeResult = AddImage(data, out string mimeType);
+                                if (string.IsNullOrEmpty(writeResult))
+                                {
+                                    migrationRecordsDao.UpdateMigrationRecordsByezAcquire(data.Original_DocId, writeResult, 0, "E", "");
+                                }
+                                else
+                                {
+                                    //var sha1 = GetSHA1(result, mimeType, out int pages);  //用另一支程式做
+                                    int pages = 0;
+                                    string sha1 = "";
+                                    migrationRecordsDao.UpdateMigrationRecordsByezAcquire(data.Original_DocId, writeResult, pages, "S", sha1);
+
+                                    //刪除暫存影像檔案
+                                    try
+                                    {
+                                        Directory.Delete(data.File_Path, true);
+                                    }
+                                    catch (Exception ex) { ExceptionLogger.Write(ex, "刪除檔案。"); };
+                                }
+                            }
+                        }
+
+                        resultMsg += ", " + writeResult;
+                        if (listBoxRecord.InvokeRequired)
+                        {
+                            listBoxRecord.Invoke(new MethodInvoker(delegate
+                            {
+                                listBoxRecord.Items.Add(resultMsg);
+                            }));
+                        }
+                        else
+                        {
+                            listBoxRecord.Items.Add(resultMsg);
                         }
                     }
                     catch (Exception ex)

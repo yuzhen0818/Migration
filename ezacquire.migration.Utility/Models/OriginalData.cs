@@ -36,6 +36,15 @@ namespace ezacquire.migration.Utility.Models
         /// 影像暫存路徑
         /// </summary>
         public string File_Path { set; get; }
+
+        public OriginalData()
+        {
+            Original_DocId = "";
+            Original_Pages = "";
+            Original_DocSize = "";
+            Original_ImageSHA1 = "";
+            Original_Index = new DocumentAdd();
+        }
     }
 
 

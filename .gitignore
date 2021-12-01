@@ -240,3 +240,15 @@
 /packages/System.ValueTuple.4.5.0/ref/xamarintvos10/*._
 /packages/System.ValueTuple.4.5.0/ref/xamarinwatchos10/*._
 /packages/System.ValueTuple.4.5.0/*.txt
+/ezacquire.migration/bin/Debug/*.dll
+/ezacquire.migration/bin/Debug/*.xml
+/ezacquire.migration/bin/Debug/*.config
+/ezacquire.migration/bin/Debug/*.pdb
+/ezacquire.migration/bin/Debug/*.exe
+/ezacquire.migration/obj/Debug/*.cache
+/ezacquire.migration/obj/Debug/*.cs
+/ezacquire.migration/obj/Debug/*.resources
+/ezacquire.migration/obj/Debug/*.CopyComplete
+/ezacquire.migration/obj/Debug/*.txt
+/ezacquire.migration/obj/Debug/*.exe
+/ezacquire.migration/obj/Debug/*.pdb

@@ -102,13 +102,14 @@ namespace ezacquire.migration.Utility
             return success;
         }
         
-        public string DoDownloadAction(string docId)
+        public string DoDownloadAction(string docId, out OriginalData originalData)
         {
+            originalData = new OriginalData();
             string year = DateTime.Now.ToString("yyyy");
             string month = DateTime.Now.ToString("MM");
             string day = DateTime.Now.ToString("dd");
             string taskFolder = Path.Combine(imageTempFolder, year, month, day, docId);
-            var result = RecreateDirectory(taskFolder);
+            var result = Commons.RecreateDirectory(taskFolder);
             if(!result)
             {
                 migrationRecordsDao.UpdateMigrationRecordsStatus(docId, "U", "");
@@ -117,7 +118,7 @@ namespace ezacquire.migration.Utility
             
             try
             {
-                List<string> imageList = ProcessDoc(docId, taskFolder);
+                List<string> imageList = ProcessDoc(docId, taskFolder, out originalData);
             }
             catch (Exception ex)
             {
@@ -146,10 +147,11 @@ namespace ezacquire.migration.Utility
             return indexDatas;
         }
 
-        private List<string> ProcessDoc(string documentId, string taskFolder)
+        private List<string> ProcessDoc(string documentId, string taskFolder, out OriginalData originalData)
         {
             Logger.Write("");
             Logger.Write("DocumentId = " + documentId);
+            originalData = new OriginalData();
 
             if (!LogonIS())
             {
@@ -160,7 +162,7 @@ namespace ezacquire.migration.Utility
             ISVO isvo = ISObj.getDocData(documentId);
             if (isvo == null) return new List<string>();
             string isBpm = string.IsNullOrEmpty(isvo.ServiceNumber) ? "N" : "Y";
-            string index = GetIndex(isvo);
+            string index = GetIndex(isvo, out DocumentAdd documentAdd);
             long docSize = 0;
             string sha1 = "";
             string status = "S";
@@ -181,6 +183,14 @@ namespace ezacquire.migration.Utility
                 imageFileList = ProcessDocId(taskFolder, isvo.F_DOCNUMBER, pageCount, out docSize, out sha1);
 
             migrationRecordsDao.UpdateMigrationRecords(isvo.F_DOCNUMBER, docSize, index, status, sha1, taskFolder, isBpm);
+            originalData = new OriginalData() {
+                File_Path = taskFolder,
+                Original_DocId = isvo.F_DOCNUMBER,
+                Original_DocSize = docSize.ToString(),
+                Original_Index = documentAdd,
+                Original_ImageSHA1 = sha1,
+                Original_Pages = pageCount.ToString()
+            };
             return imageFileList;
         }
 
@@ -205,41 +215,6 @@ namespace ezacquire.migration.Utility
 
             return imageFileList;
         }
-
-        /// <summary>
-        /// 創建資料夾
-        /// </summary>
-        /// <param name="directory"></param>
-        private bool RecreateDirectory(string directory)
-        {
-            bool result = true;
-            if (Directory.Exists(directory))
-            {
-                try
-                {
-                    Directory.Delete(directory, true);
-                }
-                catch (Exception ex)
-                {
-                    result = false;
-                    ExceptionLogger.Write(ex, "刪除資料夾發生錯誤 >> " + directory + "。");
-                }
-            }
-
-            if (!Directory.Exists(directory))
-            {
-                try
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                catch (Exception ex)
-                {
-                    result = false;
-                    ExceptionLogger.Write(ex, "建立資料夾發生錯誤 >> " + directory + "。");
-                }
-            }
-            return result;
-        }
         
         /// <summary>
         /// 取SHA1
@@ -255,7 +230,7 @@ namespace ezacquire.migration.Utility
             }
         }
 
-        private string GetIndex(ISVO isvo)
+        private string GetIndex(ISVO isvo, out DocumentAdd documentAdd)
         {
             DocImageData docImageData = migrationRecordsDao.GetDocImageData(isvo.F_DOCNUMBER);
             List<IndexData> indexDatas = new List<IndexData>();
@@ -272,7 +247,7 @@ namespace ezacquire.migration.Utility
             indexDatas.Add(SetIndexData("Inquire", isvo.Inquire));
             indexDatas.Add(SetIndexData("DepartCode", docImageData.DepartCode));
 
-            DocumentAdd documentAdd = new DocumentAdd();
+            documentAdd = new DocumentAdd();
             documentAdd.DocumentIndex = new DocumentIndexPartial()
             {
                 FormID = isvo.FormID,
