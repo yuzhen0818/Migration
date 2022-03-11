@@ -6,7 +6,9 @@ using System.ComponentModel;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -109,8 +111,9 @@ namespace ezacquire.migration.Extractor
             isClosed = false;
             if (bws.Count > 0 && bws[0].IsBusy)
             {
-                DialogResult result;
-                result = MessageBox.Show("程式執行中，確定要關閉嗎?", "", MessageBoxButtons.YesNo);
+                DialogResult result = System.Windows.Forms.DialogResult.Yes;
+                if (e != null)
+                    result = MessageBox.Show("程式執行中，確定要關閉嗎?", "", MessageBoxButtons.YesNo);
                 if (result == System.Windows.Forms.DialogResult.Yes)
                 {
                     for (int i = 0; i < ThreadCount; i++)
@@ -235,7 +238,7 @@ namespace ezacquire.migration.Extractor
             bool result = true;
             try
             {
-                DateTime baseDate = new DateTime(1970, 1, 1);
+                /*DateTime baseDate = new DateTime(1970, 1, 1);
                 DateTime.TryParse(ConfigurationManager.AppSettings["StartDay"], out DateTime startDay);
                 if (ConfigurationManager.AppSettings["EndDay"] != "") // 如果有EndDay代表上次取到最後時間，要從那天在往後取
                     DateTime.TryParse(ConfigurationManager.AppSettings["EndDay"], out startDay);
@@ -263,11 +266,21 @@ namespace ezacquire.migration.Extractor
                 Configuration configuration = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 configuration.AppSettings.Settings["EndDay"].Value = endDay.ToString("yyyy/MM/dd");
                 configuration.Save(ConfigurationSaveMode.Full, true);
-                ConfigurationManager.RefreshSection("appSettings");
+                ConfigurationManager.RefreshSection("appSettings");*/
+                
+                string exePath = ConfigurationManager.AppSettings["exePath"];
+                string[] cmd = { exePath, "" };
+                string data = Cmd(cmd);
+                lblTime.Text = data;
+                if (data.Contains("ERROR"))
+                {
+                    Logger.Write("ExceMigrationByExe ERROR");
+                    result = false;
+                }
             }
             catch (Exception ex)
             {
-                lblTime.Text += " ERROR";
+                //lblTime.Text += " ERROR";
                 listBoxRecord.Items.Add("ExceMigration Error: " + ex.Message);
                 ExceptionLogger.Write(ex);
                 result = false;
@@ -337,6 +350,36 @@ namespace ezacquire.migration.Extractor
             }
             else
                 MessageBox.Show("程式執行中．．．");
+        }
+
+        private string Cmd(string[] cmd)
+        {
+            Process proc = new Process();
+            try
+            {
+                proc.StartInfo.FileName = cmd[0];
+                proc.StartInfo.Arguments = cmd[1];
+                proc.StartInfo.UseShellExecute = false;
+                proc.StartInfo.RedirectStandardOutput = true;
+                proc.StartInfo.RedirectStandardError = true;
+                proc.StartInfo.CreateNoWindow = true;
+
+                proc.Start();
+
+                string stdout = "";
+                using (StreamReader reader = proc.StandardOutput)
+                {
+                    stdout += reader.ReadToEnd();
+                }
+
+                proc.WaitForExit();
+
+                return stdout;
+            }
+            finally
+            {
+                proc.Close();
+            }
         }
         #endregion
 

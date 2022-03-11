@@ -12,7 +12,7 @@ using TTI.IDM;
 
 namespace ezacquire.migration.Utility
 {
-    public class DocumentDao
+    public class DocumentDao : IDisposable
     {
         // 登入 ISRA
         private string ISLibraryName = "";
@@ -23,7 +23,9 @@ namespace ezacquire.migration.Utility
         private IdmIS ISObj = null;
         private string imageTempFolder = "";
         MigrationRecordsDao migrationRecordsDao;
+        private bool disposed = false;
 
+        #region ::Constructor::
         public DocumentDao()
         {
             Logger.Write("初始化參數中...");
@@ -41,6 +43,55 @@ namespace ezacquire.migration.Utility
                 ExceptionLogger.Write(ex);
             }
         }
+        #endregion
+
+        public void test(int NowThread, int count)
+        {
+            if (count % 1000 == 0)
+                Logger.Write(NowThread + ":" + ISUserID + " ___ " + count);
+        }
+
+        #region ::Dispose::
+        // 實現IDisposable中的Dispose方法
+        public void Dispose()
+        {
+            //必須為true
+            Dispose(true);
+            //通知垃圾回收機制不再呼叫終結器（析構器）
+            GC.SuppressFinalize(this);
+        }
+
+        // 不是必要的，提供一個Close方法僅僅是為了更符合其他語言（如C++）的規範
+        public void Close()
+        {
+            Dispose();
+        }
+
+        // 必須，以備程式設計師忘記了顯式呼叫Dispose方法
+        ~DocumentDao()
+        {
+            //必須為false
+            Dispose(false);
+        }
+
+        ///<summary>/// 非密封類修飾用protected virtual
+        /// 密封類修飾用private
+        ///</summary>///<param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+            if (disposing)
+            {
+                ISObj = null;
+                migrationRecordsDao = null;
+            }
+            //讓型別知道自己已經被釋放
+            disposed = true;
+        }
+        #endregion
 
         #region :: Initial Settings ::
 
@@ -101,7 +152,7 @@ namespace ezacquire.migration.Utility
 
             return success;
         }
-        
+
         public string DoDownloadAction(string docId, out OriginalData originalData)
         {
             originalData = new OriginalData();
@@ -110,12 +161,12 @@ namespace ezacquire.migration.Utility
             string day = DateTime.Now.ToString("dd");
             string taskFolder = Path.Combine(imageTempFolder, year, month, day, docId);
             var result = Commons.RecreateDirectory(taskFolder);
-            if(!result)
+            if (!result)
             {
                 migrationRecordsDao.UpdateMigrationRecordsStatus(docId, "U", "");
                 return "U| 創建資料夾有問題。";
             }
-            
+
             try
             {
                 List<string> imageList = ProcessDoc(docId, taskFolder, out originalData);
@@ -126,7 +177,7 @@ namespace ezacquire.migration.Utility
                 string status = CheckExceptionMsg(ex.Message);
                 migrationRecordsDao.UpdateMigrationRecordsStatus(docId, status, "");
                 var errmsg = $"({taskFolder})";
-                return status+"| Fail: " + ex.Message +" "+ errmsg;
+                return status + "| Fail: " + ex.Message + " " + errmsg;
             }
             return "S| Success";
         }
@@ -140,7 +191,7 @@ namespace ezacquire.migration.Utility
                 indexDatas.Add(SetIndexData("PolicyDate", docImageData.PolicyDate));
                 indexDatas.Add(SetIndexData("CloseDate", docImageData.CloseDate));
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ExceptionLogger.Write(ex);
             }
@@ -174,7 +225,7 @@ namespace ezacquire.migration.Utility
             {
                 status = "C";
             }
-            else 
+            else
             if (isvo.FormID.Equals("")) //影像關閉及沒有Index的不移轉
             {
                 status = "D";
@@ -183,7 +234,8 @@ namespace ezacquire.migration.Utility
                 imageFileList = ProcessDocId(taskFolder, isvo.F_DOCNUMBER, pageCount, out docSize, out sha1);
 
             migrationRecordsDao.UpdateMigrationRecords(isvo.F_DOCNUMBER, docSize, index, status, sha1, taskFolder, isBpm);
-            originalData = new OriginalData() {
+            originalData = new OriginalData()
+            {
                 File_Path = taskFolder,
                 Original_DocId = isvo.F_DOCNUMBER,
                 Original_DocSize = docSize.ToString(),
@@ -215,7 +267,7 @@ namespace ezacquire.migration.Utility
 
             return imageFileList;
         }
-        
+
         /// <summary>
         /// 取SHA1
         /// </summary>
@@ -281,7 +333,7 @@ namespace ezacquire.migration.Utility
         private IndexData SetIndexData(string name, string[] values)
         {
             IndexData indexData = new IndexData(name);
-            foreach(var value in values)
+            foreach (var value in values)
                 indexData.Value.Add(value);
             return indexData;
         }
@@ -310,7 +362,7 @@ namespace ezacquire.migration.Utility
                     }
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 ExceptionLogger.Write(ex, "檢查錯誤訊息有問題。");
             }

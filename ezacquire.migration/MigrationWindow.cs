@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -28,7 +29,6 @@ namespace ezacquire.migration
 
         MigrationRecordsDao migrationRecordsDao = new MigrationRecordsDao();
         DocumentManage documentManage = new DocumentManage();
-        DocumentDao documentDao = new DocumentDao();
         string startTime = "";
         string endTime = "";
         string weekendStartTime = "";
@@ -116,8 +116,9 @@ namespace ezacquire.migration
             isClosed = false;
             if (bws.Count > 0 && bws[0].IsBusy)
             {
-                DialogResult result;
-                result = MessageBox.Show("程式執行中，確定要關閉嗎?", "", MessageBoxButtons.YesNo);
+                DialogResult result = System.Windows.Forms.DialogResult.Yes;
+                if(e != null)
+                    result = MessageBox.Show("程式執行中，確定要關閉嗎?", "", MessageBoxButtons.YesNo);
                 if (result == System.Windows.Forms.DialogResult.Yes)
                 {
                     for (int i = 0; i < ThreadCount; i++)
@@ -237,7 +238,7 @@ namespace ezacquire.migration
             bool result = true;
             try
             {
-                DateTime baseDate = new DateTime(1970, 1, 1);
+                /*DateTime baseDate = new DateTime(1970, 1, 1);
                 DateTime.TryParse(ConfigurationManager.AppSettings["StartDay"], out DateTime startDay);
                 if (ConfigurationManager.AppSettings["EndDay"] != "") // 如果有EndDay代表上次取到最後時間，要從那天在往後取
                     DateTime.TryParse(ConfigurationManager.AppSettings["EndDay"], out startDay);
@@ -265,11 +266,21 @@ namespace ezacquire.migration
                 Configuration configuration = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 configuration.AppSettings.Settings["EndDay"].Value = endDay.ToString("yyyy/MM/dd");
                 configuration.Save(ConfigurationSaveMode.Full, true);
-                ConfigurationManager.RefreshSection("appSettings");
+                ConfigurationManager.RefreshSection("appSettings");*/
+
+                string exePath = ConfigurationManager.AppSettings["exePath"];
+                string[] cmd = { exePath, "" };
+                string data = Cmd(cmd);
+                lblTime.Text = data;
+                if (data.Contains("ERROR"))
+                {
+                    Logger.Write("ExceMigrationByExe ERROR");
+                    result = false;
+                }
             }
             catch (Exception ex)
             {
-                lblTime.Text += " ERROR";
+                //lblTime.Text += " ERROR";
                 listBoxRecord.Items.Add("ExceMigration Error: " + ex.Message);
                 ExceptionLogger.Write(ex);
                 result = false;
@@ -345,7 +356,7 @@ namespace ezacquire.migration
                 MessageBox.Show("程式執行中．．．");
         }
 
-        private string AddImage(OriginalData originalData, out string mimeType)
+        private string AddImage(OriginalData originalData, DocumentDao documentDao, out string mimeType)
         {
             Logger.Write($"============ DocId:{originalData.Original_DocId} ============");
             mimeType = "";
@@ -469,6 +480,36 @@ namespace ezacquire.migration
                 return "";
             }
         }
+
+        private string Cmd(string[] cmd)
+        {
+            Process proc = new Process();
+            try
+            {
+                proc.StartInfo.FileName = cmd[0];
+                proc.StartInfo.Arguments = cmd[1];
+                proc.StartInfo.UseShellExecute = false;
+                proc.StartInfo.RedirectStandardOutput = true;
+                proc.StartInfo.RedirectStandardError = true;
+                proc.StartInfo.CreateNoWindow = true;
+
+                proc.Start();
+
+                string stdout = "";
+                using (StreamReader reader = proc.StandardOutput)
+                {
+                    stdout += reader.ReadToEnd();
+                }
+
+                proc.WaitForExit();
+
+                return stdout;
+            }
+            finally
+            {
+                proc.Close();
+            }
+        }
         #endregion
 
         #region <<BackgroundWorker >>
@@ -489,7 +530,6 @@ namespace ezacquire.migration
                         Logger.Write("執行緒 " + NowThread.ToString() + " 停止");
                         return;
                     }
-
                     try
                     {
                         ExceTotal++;
@@ -541,7 +581,7 @@ namespace ezacquire.migration
                         {
                             if(data != null && !string.IsNullOrEmpty(data.Original_ImageSHA1))
                             {
-                                writeResult = AddImage(data, out string mimeType);
+                                writeResult = AddImage(data, documentDao, out string mimeType);
                                 if (string.IsNullOrEmpty(writeResult))
                                 {
                                     migrationRecordsDao.UpdateMigrationRecordsByezAcquire(data.Original_DocId, writeResult, 0, "E", "");
@@ -562,6 +602,11 @@ namespace ezacquire.migration
                                 }
                             }
                         }
+                        else
+                        {
+                            documentDao.Dispose();
+                            documentDao = new DocumentDao();
+                        }
 
                         resultMsg += ", " + writeResult;
                         if (listBoxRecord.InvokeRequired)
@@ -579,6 +624,8 @@ namespace ezacquire.migration
                     catch (Exception ex)
                     {
                         ExceptionLogger.Write(ex);
+                        documentDao.Dispose();
+                        documentDao = new DocumentDao();
                     }
                 }
                 catch (Exception ex)

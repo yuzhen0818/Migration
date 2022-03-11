@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ezacquire.migration.Checker
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ezacquire.migration", "ezacquire.migration\ezacquire.migration.csproj", "{E8396E9B-EA50-477D-B8CB-6D0C01531B75}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationRecodrs", "MigrationRecodrs\MigrationRecodrs.csproj", "{39366707-B63D-4AF8-BBB6-A4096295557C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{E8396E9B-EA50-477D-B8CB-6D0C01531B75}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E8396E9B-EA50-477D-B8CB-6D0C01531B75}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E8396E9B-EA50-477D-B8CB-6D0C01531B75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39366707-B63D-4AF8-BBB6-A4096295557C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39366707-B63D-4AF8-BBB6-A4096295557C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39366707-B63D-4AF8-BBB6-A4096295557C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39366707-B63D-4AF8-BBB6-A4096295557C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
