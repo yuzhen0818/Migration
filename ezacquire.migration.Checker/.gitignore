@@ -1,0 +1,14 @@
+/obj/Debug/*.cache
+/obj/Debug/TempPE/*.dll
+/obj/Debug/*.cs
+/obj/Debug/*.resources
+/obj/Debug/*.CopyComplete
+/obj/Debug/*.txt
+/obj/Debug/*.exe
+/obj/Debug/*.pdb
+/bin/Debug/Log/*.log
+/bin/Debug/*.dll
+/bin/Debug/*.xml
+/bin/Debug/*.exe
+/bin/Debug/*.config
+/bin/Debug/*.pdb
